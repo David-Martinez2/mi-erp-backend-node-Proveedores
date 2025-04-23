@@ -7,7 +7,6 @@ const bodyParser = require('body-parser');
 require('dotenv').config();
 const moment = require('moment');
 
-// Solo debes tener una declaración de `mysql` en todo tu archivo
 // Requiere la librería mysql
 const mysql = require('mysql');
 
@@ -16,18 +15,19 @@ const db = mysql.createConnection({
   host: 'caboose.proxy.rlwy.net',
   port: 48242,
   user: 'root',
-  password: 'sqkyBuvVFVzzDLrJhBOQdIRXHeCRmcCk',  
+  password: 'contraseña',  // reemplaza 'contraseña' con la contraseña real
   database: 'railway'
 });
 
 // Conéctate a la base de datos
-db.connect(err => {
+db.connect((err) => {
   if (err) {
     console.error('Error al conectar a la base de datos: ' + err.stack);
     return;
   }
   console.log('Conectado a la base de datos con ID ' + db.threadId);
 });
+
 
 
 connection.connect((err) => {
