@@ -10,8 +10,8 @@ const moment = require('moment');
 // Configuración de la base de datos
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'erp_user',
-  password: '123456',
+  user: 'root',
+  password: 'sqkyBuvVFVzzDLrJhBOQdIRXHeCRmcCk',
   database: 'mi_erp_db'
 });
 
