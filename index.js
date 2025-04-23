@@ -3,13 +3,14 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const mysql = require('mysql');
+
 require('dotenv').config();
 const moment = require('moment');
 
+// Solo debes tener una declaración de `mysql` en todo tu archivo
 const mysql = require('mysql');
 
-
+// Configura la conexión
 const connection = mysql.createConnection({
   host: 'caboose.proxy.rlwy.net',
   port: 48242,
@@ -17,6 +18,16 @@ const connection = mysql.createConnection({
   password: 'contraseña',
   database: 'railway'
 });
+
+// Conéctate a la base de datos
+connection.connect((err) => {
+  if (err) {
+    console.error('Error al conectar a la base de datos: ' + err.stack);
+    return;
+  }
+  console.log('Conectado a la base de datos con ID ' + connection.threadId);
+});
+
 
 connection.connect((err) => {
   if (err) {
