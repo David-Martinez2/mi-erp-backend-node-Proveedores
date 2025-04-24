@@ -3,34 +3,17 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-
+const mysql = require('mysql');
 require('dotenv').config();
 const moment = require('moment');
 
-// Requiere la librería mysql
-const mysql = require('mysql');
-
-// Crea una conexión a la base de datos
+// Configuración de la base de datos
 const db = mysql.createConnection({
-  host: 'caboose.proxy.rlwy.net',
-  port: 48242,
-  user: 'root',
-  password: 'contraseña',  // reemplaza 'contraseña' con la contraseña real
-  database: 'railway'
+  host: 'localhost',
+  user: 'erp_user',
+  password: '123456',
+  database: 'mi_erp_db'
 });
-
-// Conéctate a la base de datos
-db.connect((err) => {
-  if (err) {
-    console.error('Error al conectar a la base de datos: ' + err.stack);
-    return;
-  }
-  console.log('Conectado a la base de datos con ID ' + db.threadId);
-});
-
-
-
-
 
 db.connect(err => {
   if (err) {
@@ -45,7 +28,7 @@ const app = express();
 
 // Configuración de CORS
 const corsOptions = {
-  origin: ['https://erpmovil.netlify.app', 'http://localhost:5173'], // Permitimos ambos puertos
+  origin: ['http://localhost:3000', 'http://localhost:5173'], // Permitimos ambos puertos
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'], // Aseguramos que los headers necesarios sean permitidos
 };
