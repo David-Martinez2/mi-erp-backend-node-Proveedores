@@ -380,16 +380,16 @@ app.get('/api/empleado/count', (req, res) => {
 
 // Ruta para registrar nuevos usuarios
 app.post('/api/usuarios', async (req, res) => {
-  const { username, password, role_id } = req.body;
+  const { username, password} = req.body;
 
-  if (!username || !password || !role_id) {
+  if (!username || !password ) {
     return res.status(400).json({ message: 'Todos los campos son obligatorios' });
   }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const query = 'INSERT INTO users (username, password, role_id) VALUES (?, ?, ?)';
-    db.query(query, [username, hashedPassword, role_id], (err, result) => {
+    const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
+    db.query(query, [username, hashedPassword], (err, result) => {
       if (err) {
         console.error('Error al registrar usuario:', err);
         return res.status(500).json({ message: 'Error al registrar usuario' });
@@ -402,7 +402,7 @@ app.post('/api/usuarios', async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
-
+/*
 // ✅ Ruta protegida: Registrar nuevo usuario (solo superadmin)
 app.post('/api/usuarios', (req, res) => {
   const token = req.headers['authorization']?.split(' ')[1];
@@ -451,7 +451,7 @@ app.post('/api/usuarios', (req, res) => {
     });
   });
 });
-
+*/
 //aqui comienza el ERP movil
 // ✅ Ruta para obtener todas las máquinas
 app.get('/api/maquinas', (req, res) => {
@@ -511,6 +511,5 @@ app.post('/api/fallas', (req, res) => {
     res.status(200).json({ message: 'Falla reportada con éxito.' });
   });
 });
-
 
 
