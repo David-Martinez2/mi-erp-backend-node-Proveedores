@@ -1,0 +1,59 @@
+CREATE TABLE IF NOT EXISTS proveedores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL UNIQUE,
+    contacto VARCHAR(255),
+    telefono VARCHAR(50),
+    correo VARCHAR(255) UNIQUE,
+    direccion TEXT,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE IF NOT EXISTS estimados_entrega (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proveedor_id INT NOT NULL,
+    producto_nombre VARCHAR(255) NOT NULL, -- O producto_id si tienes tabla de productos
+    fecha_estimada DATE NOT NULL,
+    cantidad INT NOT NULL,
+    comentarios TEXT,
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE CASCADE
+    -- Si tienes una tabla de productos, podrías añadir:
+    -- , producto_id INT
+    -- , FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS entradas_inventario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proveedor_id INT NOT NULL,
+    fecha_entrada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    producto_id INT NOT NULL,
+    cantidad INT NOT NULL,
+    estatus VARCHAR(50) NOT NULL, -- Ej: 'Recibido completo', 'Recibido parcial', 'Con novedad'
+    comentarios TEXT,
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE CASCADE,
+    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE RESTRICT -- Asumo que existe tabla productos
+);
+
+CREATE TABLE IF NOT EXISTS productos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL UNIQUE,
+    descripcion TEXT,
+    precio DECIMAL(10, 2) NOT NULL,
+    stock INT NOT NULL DEFAULT 0,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE IF NOT EXISTS entradas_inventario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proveedor_id INT NOT NULL,
+    fecha_entrada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    producto_id INT NOT NULL,
+    cantidad INT NOT NULL,
+    estatus VARCHAR(50) NOT NULL, -- Ej: 'Recibido completo', 'Recibido parcial', 'Con novedad'
+    comentarios TEXT,
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE CASCADE,
+    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE RESTRICT
+);
