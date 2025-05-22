@@ -26,6 +26,8 @@ db.connect(err => {
 // Creación de la aplicación Express
 const app = express();
 
+
+
 // Configuración de CORS
 const corsOptions = {
   origin: ['http://localhost:3000', 'http://localhost:5173'], // Permitimos ambos puertos
@@ -33,8 +35,9 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'], // Aseguramos que los headers necesarios sean permitidos
 };
 
+
 // Habilitamos CORS con la configuración personalizada
-app.use(cors(corsOptions)); 
+app.use(cors()); 
 
 // Configuración del Body Parser
 app.use(bodyParser.json()); // Para JSON
@@ -80,6 +83,349 @@ app.get('/api/user', (req, res) => {
     });
   });
 });
+//////////////////////////////////////////
+// --- Rutas para Proveedores ---
+app.get('/api/proveedores', (req, res) => {
+    db.query('SELECT * FROM proveedores', (err, results) => {
+        if (err) {
+            console.error('Error al obtener proveedores:', err);
+            return res.status(500).json({ message: 'Error al obtener proveedores', error: err.message });
+        }
+        res.json(results);
+    });
+});
+
+app.get('/api/proveedores/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('SELECT * FROM proveedores WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            console.error('Error al obtener proveedor por ID:', err);
+            return res.status(500).json({ message: 'Error al obtener proveedor', error: err.message });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Proveedor no encontrado' });
+        }
+        res.json(results[0]);
+    });
+});
+
+app.post('/api/proveedores', (req, res) => {
+    const { nombre, contacto, telefono, correo, direccion } = req.body;
+    if (!nombre) {
+        return res.status(400).json({ message: 'El nombre del proveedor es obligatorio.' });
+    }
+    const query = 'INSERT INTO proveedores (nombre, contacto, telefono, correo, direccion) VALUES (?, ?, ?, ?, ?)';
+    db.query(query, [nombre, contacto, telefono, correo, direccion], (err, result) => {
+        if (err) {
+            console.error('Error al agregar proveedor:', err);
+            // Error de duplicidad de nombre o correo
+            if (err.code === 'ER_DUP_ENTRY') {
+                return res.status(409).json({ message: 'Ya existe un proveedor con este nombre o correo.' });
+            }
+            return res.status(500).json({ message: 'Error al agregar proveedor', error: err.message });
+        }
+        res.status(201).json({ message: 'Proveedor agregado con éxito', id: result.insertId });
+    });
+});
+
+app.put('/api/proveedores/:id', (req, res) => {
+    const { id } = req.params;
+    const { nombre, contacto, telefono, correo, direccion } = req.body;
+    if (!nombre) {
+        return res.status(400).json({ message: 'El nombre del proveedor es obligatorio.' });
+    }
+    const query = 'UPDATE proveedores SET nombre = ?, contacto = ?, telefono = ?, correo = ?, direccion = ? WHERE id = ?';
+    db.query(query, [nombre, contacto, telefono, correo, direccion, id], (err, result) => {
+        if (err) {
+            console.error('Error al actualizar proveedor:', err);
+            if (err.code === 'ER_DUP_ENTRY') {
+                return res.status(409).json({ message: 'Ya existe otro proveedor con este nombre o correo.' });
+            }
+            return res.status(500).json({ message: 'Error al actualizar proveedor', error: err.message });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Proveedor no encontrado para actualizar.' });
+        }
+        res.json({ message: 'Proveedor actualizado con éxito' });
+    });
+});
+
+app.delete('/api/proveedores/:id', (req, res) => {
+    const proveedorId = req.params.id;
+
+    // Verificar si hay entradas de inventario asociadas
+    const checkEntradasQuery = 'SELECT COUNT(*) AS count FROM entradas_inventario WHERE proveedor_id = ?';
+    db.query(checkEntradasQuery, [proveedorId], (err, entradasResult) => {
+        if (err) {
+            console.error('Error al verificar entradas de inventario asociadas:', err);
+            return res.status(500).json({ message: 'Error interno del servidor al verificar entradas.' });
+        }
+
+        if (entradasResult[0].count > 0) {
+            return res.status(400).json({ message: 'Error al eliminar el proveedor. Verifica que no tenga entradas de inventario asociadas.' });
+        }
+
+        // *******************************************************************
+        // ¡ESTO ES LO QUE NECESITAS ELIMINAR O COMENTAR!
+        // Si la tabla productos NO tiene proveedor_id, esta consulta fallará.
+        // *******************************************************************
+        // const checkProductosQuery = 'SELECT COUNT(*) AS count FROM productos WHERE proveedor_id = ?';
+        // connection.query(checkProductosQuery, [proveedorId], (err, productosResult) => {
+        //     if (err) {
+        //         console.error('Error al verificar productos asociados:', err);
+        //         return res.status(500).json({ message: 'Error interno del servidor al verificar productos.' });
+        //     }
+        //
+        //     if (productosResult[0].count > 0) {
+        //         return res.status(400).json({ message: 'Error al eliminar el proveedor. Verifica que no tenga productos asociados.' });
+        //     }
+
+            // Si no hay entradas ni productos asociados, proceder a eliminar el proveedor
+            const deleteProveedorQuery = 'DELETE FROM proveedores WHERE id = ?';
+            db.query(deleteProveedorQuery, [proveedorId], (err, deleteResult) => {
+                if (err) {
+                    console.error('Error al eliminar el proveedor:', err);
+                    return res.status(500).json({ message: 'Error interno del servidor al eliminar el proveedor.' });
+                }
+                if (deleteResult.affectedRows === 0) {
+                    return res.status(404).json({ message: 'Proveedor no encontrado.' });
+                }
+                res.status(200).json({ message: 'Proveedor eliminado exitosamente.' });
+            });
+        // }); // Cierra el bloque de la consulta de productos (si lo comentas)
+    });
+});
+// --- Fin Rutas para Proveedores ---
+
+// --- Rutas para Estimados de Entrega ---
+app.get('/api/proveedores/:proveedorId/estimados', (req, res) => {
+    const { proveedorId } = req.params;
+    const query = 'SELECT * FROM estimados_entrega WHERE proveedor_id = ? ORDER BY fecha_estimada DESC';
+    db.query(query, [proveedorId], (err, results) => {
+        if (err) {
+            console.error('Error al obtener estimados de entrega:', err);
+            return res.status(500).json({ message: 'Error al obtener estimados de entrega', error: err.message });
+        }
+        res.json(results);
+    });
+});
+
+app.post('/api/estimados', (req, res) => { // Ruta general para agregar estimados
+    const { proveedor_id, producto_nombre, fecha_estimada, cantidad, comentarios } = req.body;
+    if (!proveedor_id || !producto_nombre || !fecha_estimada || !cantidad) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios para el estimado de entrega.' });
+    }
+    const query = 'INSERT INTO estimados_entrega (proveedor_id, producto_nombre, fecha_estimada, cantidad, comentarios) VALUES (?, ?, ?, ?, ?)';
+    db.query(query, [proveedor_id, producto_nombre, fecha_estimada, cantidad, comentarios], (err, result) => {
+        if (err) {
+            console.error('Error al registrar estimado de entrega:', err);
+            return res.status(500).json({ message: 'Error al registrar estimado de entrega', error: err.message });
+        }
+        res.status(201).json({ message: 'Estimado de entrega registrado con éxito', id: result.insertId });
+    });
+});
+
+app.put('/api/estimados/:id', (req, res) => {
+    const { id } = req.params;
+    const { proveedor_id, producto_nombre, fecha_estimada, cantidad, comentarios } = req.body;
+    if (!proveedor_id || !producto_nombre || !fecha_estimada || !cantidad) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios para actualizar el estimado.' });
+    }
+    const query = 'UPDATE estimados_entrega SET proveedor_id = ?, producto_nombre = ?, fecha_estimada = ?, cantidad = ?, comentarios = ? WHERE id = ?';
+    db.query(query, [proveedor_id, producto_nombre, fecha_estimada, cantidad, comentarios, id], (err, result) => {
+        if (err) {
+            console.error('Error al actualizar estimado de entrega:', err);
+            return res.status(500).json({ message: 'Error al actualizar estimado de entrega', error: err.message });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Estimado de entrega no encontrado para actualizar.' });
+        }
+        res.json({ message: 'Estimado de entrega actualizado con éxito' });
+    });
+});
+
+app.delete('/api/estimados/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('DELETE FROM estimados_entrega WHERE id = ?', [id], (err, result) => {
+        if (err) {
+            console.error('Error al eliminar estimado de entrega:', err);
+            return res.status(500).json({ message: 'Error al eliminar estimado de entrega', error: err.message });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Estimado de entrega no encontrado para eliminar.' });
+        }
+        res.json({ message: 'Estimado de entrega eliminado con éxito' });
+    });
+});
+
+app.get('/api/estimados/:id', (req, res) => {
+    const { id } = req.params;
+    const query = 'SELECT * FROM estimados_entrega WHERE id = ?';
+    db.query(query, [id], (err, results) => {
+        if (err) {
+            console.error('Error al obtener estimado por ID:', err);
+            return res.status(500).json({ message: 'Error al obtener el estimado', error: err.message });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Estimado de entrega no encontrado.' });
+        }
+        res.json(results[0]); // Devuelve el primer (y único) resultado
+    });
+});
+
+// --- Fin Rutas para Estimados de Entrega ---
+
+// --- Rutas para Entradas de Inventario ---
+app.get('/api/entradas-inventario', (req, res) => {
+    // JOIN con proveedores y productos para mostrar nombres en lugar de solo IDs
+    const query = `
+        SELECT
+            ei.id,
+            ei.fecha_entrada,
+            ei.cantidad,
+            ei.estatus,
+            ei.comentarios,
+            p.nombre AS producto_nombre,
+            pr.nombre AS proveedor_nombre
+        FROM entradas_inventario ei
+        JOIN productos p ON ei.producto_id = p.id
+        LEFT JOIN proveedores pr ON ei.proveedor_id = pr.id
+        ORDER BY ei.fecha_entrada DESC;
+    `;
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error al obtener entradas de inventario:', err);
+            return res.status(500).json({ message: 'Error al obtener entradas de inventario', error: err.message });
+        }
+        res.json(results);
+    });
+});
+
+app.get('/api/entradas-inventario/:id', (req, res) => {
+    const { id } = req.params;
+    const query = `
+        SELECT
+            ei.id,
+            ei.fecha_entrada,
+            ei.cantidad,
+            ei.estatus,
+            ei.comentarios,
+            p.nombre AS producto_nombre,
+            pr.nombre AS proveedor_nombre
+        FROM entradas_inventario ei
+        JOIN productos p ON ei.producto_id = p.id
+        LEFT JOIN proveedores pr ON ei.proveedor_id = pr.id
+        WHERE ei.id = ?;
+    `;
+    db.query(query, [id], (err, results) => {
+        if (err) {
+            console.error('Error al obtener entrada de inventario por ID:', err);
+            return res.status(500).json({ message: 'Error al obtener entrada de inventario', error: err.message });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Entrada de inventario no encontrada' });
+        }
+        res.json(results[0]);
+    });
+});
+
+app.post('/api/entradas-inventario', (req, res) => {
+    const { proveedor_id, producto_nombre, cantidad, fecha_entrada, comentarios } = req.body; // Recibe producto_nombre y fecha_entrada
+
+    // Validaciones
+    if (!producto_nombre || !cantidad || !fecha_entrada) { // Estatus no es obligatorio en el frontend
+        return res.status(400).json({ message: 'Faltan campos obligatorios para registrar la entrada de inventario (Producto, Cantidad, Fecha).' });
+    }
+
+    // Paso 1: Obtener el producto_id basado en producto_nombre
+    db.query('SELECT id FROM productos WHERE nombre = ?', [producto_nombre], (err, productResults) => {
+        if (err) {
+            console.error('Error al buscar producto por nombre:', err);
+            return res.status(500).json({ message: 'Error interno del servidor al buscar producto.' });
+        }
+        if (productResults.length === 0) {
+            return res.status(404).json({ message: 'Producto no encontrado en la base de datos.' });
+        }
+        const producto_id = productResults[0].id;
+
+        // Paso 2: Insertar la entrada de inventario
+        // `proveedor_id` puede ser NULL, por eso se usa `proveedor_id || null`
+        const query = 'INSERT INTO entradas_inventario (proveedor_id, producto_id, cantidad, fecha_entrada, comentarios) VALUES (?, ?, ?, ?, ?)';
+        db.query(query, [proveedor_id || null, producto_id, cantidad, fecha_entrada, comentarios], (err, result) => { // Ahora pasamos fecha_entrada
+            if (err) {
+                console.error('Error al registrar entrada de inventario:', err);
+                return res.status(500).json({ message: 'Error al registrar entrada de inventario', error: err.message });
+            }
+            res.status(201).json({ message: 'Entrada de inventario registrada con éxito', id: result.insertId });
+
+            // Paso 3: Opcional: Actualizar el stock del producto
+            const updateStockQuery = 'UPDATE productos SET stock = stock + ? WHERE id = ?';
+            db.query(updateStockQuery, [cantidad, producto_id], (err, updateResult) => {
+                if (err) {
+                    console.error('Error al actualizar el stock del producto:', err);
+                } else {
+                    console.log(`Stock del producto ${producto_id} actualizado por +${cantidad}`);
+                }
+            });
+        });
+    });
+});
+
+app.put('/api/entradas-inventario/:id', (req, res) => {
+    const { id } = req.params;
+    const { proveedor_id, producto_nombre, cantidad, fecha_entrada, comentarios } = req.body; // Recibe producto_nombre y fecha_entrada
+
+    // Validaciones
+    if (!producto_nombre || !cantidad || !fecha_entrada) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios para actualizar la entrada de inventario (Producto, Cantidad, Fecha).' });
+    }
+
+    // Paso 1: Obtener el producto_id basado en producto_nombre
+    db.query('SELECT id FROM productos WHERE nombre = ?', [producto_nombre], (err, productResults) => {
+        if (err) {
+            console.error('Error al buscar producto por nombre:', err);
+            return res.status(500).json({ message: 'Error interno del servidor al buscar producto.' });
+        }
+        if (productResults.length === 0) {
+            return res.status(404).json({ message: 'Producto no encontrado en la base de datos.' });
+        }
+        const producto_id = productResults[0].id;
+
+        // Paso 2: Actualizar la entrada de inventario
+        const query = 'UPDATE entradas_inventario SET proveedor_id = ?, producto_id = ?, cantidad = ?, fecha_entrada = ?, comentarios = ? WHERE id = ?';
+        db.query(query, [proveedor_id || null, producto_id, cantidad, fecha_entrada, comentarios, id], (err, result) => {
+            if (err) {
+                console.error('Error al actualizar entrada de inventario:', err);
+                return res.status(500).json({ message: 'Error al actualizar entrada de inventario', error: err.message });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ message: 'Entrada de inventario no encontrada para actualizar.' });
+            }
+            res.json({ message: 'Entrada de inventario actualizada con éxito' });
+
+            // Nota: La actualización de stock en PUT es más compleja (calcular delta),
+            // por ahora no la incluiremos aquí para simplificar, a menos que la necesites.
+            // Si la necesitas, hay que obtener la cantidad anterior, restar, y luego sumar la nueva.
+        });
+    });
+});
+
+app.delete('/api/entradas-inventario/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('DELETE FROM entradas_inventario WHERE id = ?', [id], (err, result) => {
+        if (err) {
+            console.error('Error al eliminar entrada de inventario:', err);
+            return res.status(500).json({ message: 'Error al eliminar entrada de inventario', error: err.message });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Entrada de inventario no encontrada para eliminar.' });
+        }
+        res.json({ message: 'Entrada de inventario eliminada con éxito' });
+    });
+});
+// --- Fin Rutas para Entradas de Inventario ---
+
+
 /*
 // Ruta para login
 app.post('/api/login', (req, res) => {
